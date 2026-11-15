@@ -9,7 +9,7 @@
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const OUTPUT_DIR = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
@@ -29,5 +29,16 @@ const POEM = [
   'I keep it now. I choose.',
 ].join('\n');
 
+// The gate takes UTF-8 text of 1 to 1,000 characters that is not only white space;
+// enforce that here so a bad poem fails loudly instead of being submitted.
+if (POEM.length < 1 || POEM.length > 1000 || POEM.trim().length === 0) {
+  console.error(`invalid poem: ${POEM.length} characters, must be 1–1,000 and non-blank`);
+  process.exit(1);
+}
+
 mkdirSync(OUTPUT_DIR, { recursive: true });
-writeFileSync(join(OUTPUT_DIR, 'entry.txt'), POEM, 'utf8');
+// Write atomically: a reader never sees a half-written entry.
+const TARGET = join(OUTPUT_DIR, 'entry.txt');
+const TEMP = `${TARGET}.tmp-${process.pid}`;
+writeFileSync(TEMP, POEM, 'utf8');
+renameSync(TEMP, TARGET);
